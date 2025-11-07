@@ -61,24 +61,23 @@ export default function ParallaxHero({
     // If the user prefers reduced motion, clear any transforms and don't
     // subscribe to motion updates.
     if (prefersReduced) {
-      for (const [, node] of layerRefs.current.entries()) {
+      for (const node of layerRefs.current) {
         if (node) node.style.transform = "";
       }
       return;
     }
 
-    const unsub = (
-      baseLayerTransform as unknown as {
-        on: (event: "change", cb: (v: number) => void) => () => void;
+    // Use the supported MotionValue API: onChange returns an unsubscribe.
+    const unsubscribe = (baseLayerTransform as MotionValue<number>).onChange(
+      (v) => {
+        for (const [i, node] of layerRefs.current.entries()) {
+          const depth = layers[i]?.depth ?? 1;
+          if (node) node.style.transform = `translateY(${v * depth}px)`;
+        }
       }
-    ).on("change", (v: number) => {
-      for (const [i, node] of layerRefs.current.entries()) {
-        const depth = layers[i]?.depth ?? 1;
-        if (node) node.style.transform = `translateY(${v * depth}px)`;
-      }
-    });
+    );
 
-    return unsub;
+    return unsubscribe;
   }, [baseLayerTransform, layers, prefersReduced]);
 
   let alignClass = "items-center text-center";
@@ -101,8 +100,8 @@ export default function ParallaxHero({
             ref={(el) => {
               layerRefs.current[i] = el;
             }}
-            style={{ willChange: "transform" }}
-            className="absolute inset-0 -z-10"
+            style={{ willChange: "transform", zIndex: i }}
+            className="absolute inset-0"
             aria-hidden={!l.alt}
           >
             <Image
